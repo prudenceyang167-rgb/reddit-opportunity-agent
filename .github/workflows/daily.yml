@@ -19,8 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Synthetic manual demo
@@ -28,7 +28,7 @@ jobs:
         run: python -m reddit_opportunity_agent.cli demo --out .runs/daily
       - name: Upload synthetic report (no real Reddit data)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.synthetic_demo == true }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: synthetic-opportunity-demo
           path: .runs/daily/
@@ -67,7 +67,7 @@ jobs:
           echo 'Encrypted daily opportunity list is available as an artifact. Nothing was posted to Reddit.' >> "$GITHUB_STEP_SUMMARY"
       - name: Upload encrypted live report
         if: ${{ steps.live.outputs.ready == 'true' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: reddit-opportunities-encrypted
           path: ${{ runner.temp }}/opportunities.tar.gz.enc
