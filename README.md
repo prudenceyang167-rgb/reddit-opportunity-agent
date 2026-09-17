@@ -5,6 +5,7 @@ Personal project by [prudenceyang167-rgb](https://github.com/prudenceyang167-rgb
 ## What works now
 
 - Scores a **synthetic demo** with a 24-hour window, ICP fit, problem fit, discussion timing/engagement, and promotion risk.
+- Serves the same clearly labeled **synthetic-only dashboard on Vercel** from the documented Python `api/index.py` entrypoint. The public page cannot run live scans, read reports, or publish replies.
 - Produces a short P0/P1/P2 opportunity list in Markdown, CSV, and JSON. Each selected thread has a summary, core question, evidence, action, reply angle, and draft (P2 has no reply draft because participation is not recommended).
 - Provides an approved-only OAuth Data API adapter for `/r/{sub}/new`, capped and paginated. Incomplete 24-hour coverage fails visibly; it does not silently claim to have seen everything.
 - Optionally uses DeepSeek to improve summaries and draft wording **only when a separate written approval covers sending Reddit post text to an external AI provider**. The AI cannot change score, priority, or permission gates. The default is off.
@@ -26,6 +27,12 @@ python -m reddit_opportunity_agent.cli demo
 ```
 
 The command prints a new `.runs/<timestamp>/` path. Open `opportunities.md`, `opportunities.csv`, or `opportunities.json`. Everything in this demo—including subreddit names, rule evidence, posts, and the product capability—is fictional. The report is a UI/process demonstration, not an OJO recommendation or a real Reddit opportunity.
+
+## Vercel dashboard
+
+This repository now contains the [standard Vercel Python Function entrypoint](https://vercel.com/docs/functions/runtimes/python) at `api/index.py`. `vercel.json` routes `/` to it; `/api` also works directly. Deploy the **root of this repository** with Vercel's Python runtime and leave Build Command and Output Directory empty. No Vercel environment variables are required for the synthetic demo. Opening the site shows the P0/P1/P2 scoring examples; `/api?format=json` returns only synthetic JSON, and `/api?view=health` returns a safe health check.
+
+This fixes the “No python entrypoint found” deployment error, but it does **not** activate real Reddit monitoring on a public webpage. Approved real-data runs remain in the separate scheduled GitHub Action with an encrypted, one-day report artifact. Do not add Reddit or DeepSeek keys to Vercel for this dashboard: it has no real-data routes and intentionally cannot use them. The demo page is not a substitute for Reddit's written access approval.
 
 ## After Reddit grants approval
 
