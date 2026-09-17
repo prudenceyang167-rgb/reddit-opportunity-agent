@@ -31,6 +31,8 @@ class WebTest(unittest.TestCase):
              patch("reddit_opportunity_agent.ai.enrich_selected") as ai_call:
             html = render_dashboard(demo_run())
         self.assertIn("模拟演示 · 非实时 Reddit 数据", html)
+        self.assertIn("<title>OJO Community Opportunity Agent · Synthetic Demo</title>", html)
+        self.assertIn("prudenceyang167-rgb", html)
         self.assertIn("P0 / P1 / P2", html)
         self.assertIn("no comment has been posted", html.lower())
         self.assertNotIn("href=\"https://www.reddit.com/r/Synthetic", html)
@@ -58,6 +60,18 @@ class WebTest(unittest.TestCase):
         status, _, body = _invoke("GET", "/api?format=json")
         self.assertEqual(status, 200)
         self.assertIn("SYNTHETIC DEMO", json.loads(body)["source"])
+
+        status, headers, body = _invoke("GET", "/api?format=feishu-csv")
+        self.assertEqual(status, 200)
+        self.assertIn("attachment", headers["Content-Disposition"])
+        self.assertIn("Review Status", body.decode("utf-8-sig"))
+
+        status, _, body = _invoke("GET", "/api?format=rules-csv")
+        self.assertEqual(status, 200)
+        self.assertIn("Product Mention Decision", body.decode("utf-8-sig"))
+
+        status, _, _ = _invoke("GET", "/api?format=unexpected")
+        self.assertEqual(status, 400)
 
         status, _, body = _invoke("GET", "/api?view=health")
         self.assertEqual(status, 200)

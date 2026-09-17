@@ -4,6 +4,8 @@ on:
   schedule:
     # 09:17 Asia/Shanghai; off the top of the hour to reduce GitHub scheduler delays.
     - cron: '17 1 * * *'
+    # 21:17 Asia/Shanghai; retention cleanup only, no second Reddit scan.
+    - cron: '17 13 * * *'
   workflow_dispatch:
     inputs:
       synthetic_demo:
@@ -34,7 +36,7 @@ jobs:
           path: .runs/daily/
           retention-days: 1
       - name: Approved live run with encrypted output
-        if: ${{ github.event_name == 'schedule' || inputs.synthetic_demo != true }}
+        if: ${{ (github.event_name == 'schedule' && github.event.schedule == '17 1 * * *') || (github.event_name == 'workflow_dispatch' && inputs.synthetic_demo != true) }}
         id: live
         env:
           REDDIT_APPROVAL_CONFIRMED: ${{ vars.REDDIT_APPROVAL_CONFIRMED }}
@@ -80,3 +82,27 @@ jobs:
           path: ${{ runner.temp }}/opportunities.tar.gz.enc
           if-no-files-found: error
           retention-days: 1
+      - name: Sync ordinary Feishu review sheet (separately approved)
+        if: ${{ steps.live.outputs.ready == 'true' && vars.REDDIT_FEISHU_SHARING_APPROVED == 'true' }}
+        env:
+          REDDIT_APPROVAL_CONFIRMED: ${{ vars.REDDIT_APPROVAL_CONFIRMED }}
+          REDDIT_APPROVAL_REFERENCE: ${{ secrets.REDDIT_APPROVAL_REFERENCE }}
+          REDDIT_FEISHU_SHARING_APPROVED: ${{ vars.REDDIT_FEISHU_SHARING_APPROVED }}
+          REDDIT_FEISHU_APPROVAL_REFERENCE: ${{ secrets.REDDIT_FEISHU_APPROVAL_REFERENCE }}
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_SPREADSHEET_TOKEN: ${{ secrets.FEISHU_SPREADSHEET_TOKEN }}
+          FEISHU_SHEET_ID: ${{ secrets.FEISHU_SHEET_ID }}
+        run: |
+          python -m reddit_opportunity_agent.cli sync-feishu --input .runs/daily/feishu_review.csv
+          echo 'Feishu ordinary spreadsheet review queue synced; no reply was posted.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Clear expired Feishu rows even if today's scan failed
+        if: ${{ always() && github.event_name == 'schedule' && vars.FEISHU_RETENTION_CLEANUP_ENABLED == 'true' }}
+        env:
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_SPREADSHEET_TOKEN: ${{ secrets.FEISHU_SPREADSHEET_TOKEN }}
+          FEISHU_SHEET_ID: ${{ secrets.FEISHU_SHEET_ID }}
+        run: |
+          python -m reddit_opportunity_agent.cli purge-feishu
+          echo 'Feishu retention cleanup checked the ordinary spreadsheet queue.' >> "$GITHUB_STEP_SUMMARY"

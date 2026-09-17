@@ -1,7 +1,24 @@
 {
   "brand": "OJO",
-  "target_subreddits": [],
-  "max_opportunities": 8,
+  "target_subreddits": [
+    "SaaS", "SideProject", "startups", "ProductManagement", "vibecoding",
+    "Design", "UXDesign", "webdesign", "FigmaDesign", "AppBuilding",
+    "AiBuilders", "lovable"
+  ],
+  "max_opportunities": 3,
   "verified_product_facts": [],
-  "promotion_policies": {}
+  "promotion_policies": {
+    "SaaS": {"status": "unknown", "self_promo": "unknown", "product_link": "unknown", "account_age": "unknown", "karma": "unknown", "survey": "unknown", "product_feedback": "unknown", "weekly_promo_thread": "unknown", "checked_at": null, "evidence_url": null},
+    "SideProject": {"status": "unknown", "self_promo": "unknown", "product_link": "unknown", "account_age": "unknown", "karma": "unknown", "survey": "unknown", "product_feedback": "unknown", "weekly_promo_thread": "unknown", "checked_at": null, "evidence_url": null},
+    "startups": {"status": "unknown", "self_promo": "unknown", "product_link": "unknown", "account_age": "unknown", "karma": "unknown", "survey": "unknown", "product_feedback": "unknown", "weekly_promo_thread": "unknown", "checked_at": null, "evidence_url": null},
+    "ProductManagement": {"status": "unknown", "self_promo": "unknown", "product_link": "unknown", "account_age": "unknown", "karma": "unknown", "survey": "unknown", "product_feedback": "unknown", "weekly_promo_thread": "unknown", "checked_at": null, "evidence_url": null},
+    "vibecoding": {"status": "unknown", "self_promo": "unknown", "product_link": "unknown", "account_age": "unknown", "karma": "unknown", "survey": "unknown", "product_feedback": "unknown", "weekly_promo_thread": "unknown", "checked_at": null, "evidence_url": null},
+    "Design": {"status": "unknown", "self_promo": "unknown", "product_link": "unknown", "account_age": "unknown", "karma": "unknown", "survey": "unknown", "product_feedback": "unknown", "weekly_promo_thread": "unknown", "checked_at": null, "evidence_url": null},
+    "UXDesign": {"status": "unknown", "self_promo": "unknown", "product_link": "unknown", "account_age": "unknown", "karma": "unknown", "survey": "unknown", "product_feedback": "unknown", "weekly_promo_thread": "unknown", "checked_at": null, "evidence_url": null},
+    "webdesign": {"status": "unknown", "self_promo": "unknown", "product_link": "unknown", "account_age": "unknown", "karma": "unknown", "survey": "unknown", "product_feedback": "unknown", "weekly_promo_thread": "unknown", "checked_at": null, "evidence_url": null},
+    "FigmaDesign": {"status": "unknown", "self_promo": "unknown", "product_link": "unknown", "account_age": "unknown", "karma": "unknown", "survey": "unknown", "product_feedback": "unknown", "weekly_promo_thread": "unknown", "checked_at": null, "evidence_url": null},
+    "AppBuilding": {"status": "unknown", "self_promo": "unknown", "product_link": "unknown", "account_age": "unknown", "karma": "unknown", "survey": "unknown", "product_feedback": "unknown", "weekly_promo_thread": "unknown", "checked_at": null, "evidence_url": null},
+    "AiBuilders": {"status": "unknown", "self_promo": "unknown", "product_link": "unknown", "account_age": "unknown", "karma": "unknown", "survey": "unknown", "product_feedback": "unknown", "weekly_promo_thread": "unknown", "checked_at": null, "evidence_url": null},
+    "lovable": {"status": "unknown", "self_promo": "unknown", "product_link": "unknown", "account_age": "unknown", "karma": "unknown", "survey": "unknown", "product_feedback": "unknown", "weekly_promo_thread": "unknown", "checked_at": null, "evidence_url": null}
+  }
 }

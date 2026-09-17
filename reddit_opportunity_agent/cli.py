@@ -9,7 +9,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from .report import render_csv, render_markdown
+from .report import render_csv, render_feishu_csv, render_markdown
 from .scoring import evaluate_posts
 
 
@@ -58,25 +58,28 @@ def _demo(now: datetime) -> tuple[list[dict], dict]:
                 "score": votes, "permalink": f"/r/{sub}/comments/{pid}/synthetic_example/"}
 
     posts = [
-        post("demo1", "SyntheticPM", "Best AI tool for prototyping?", "As a product manager I need an editable prototype from a PRD. Any tools you recommend?", 2, 6, 8),
-        post("demo2", "SyntheticFounders", "How do you build landing pages fast?", "Founder with an MVP; looking for a landing page workflow. What worked for you?", 5, 3, 4),
-        post("demo3", "SyntheticDesign", "Is AI useful for UX designers?", "I'm a designer exploring an AI design workflow and Figma alternatives.", 10, 1, 2),
-        post("demo4", "SyntheticDesign", "AI design workflow reflections", "We have been exploring an AI design workflow, with no request for recommendations.", 18, 0, 1),
+        post("demo1", "SyntheticPM", "Best AI tool for prototyping?", "As a product manager I need an editable prototype from a PRD. My current UI is hard to edit. Any tools you recommend?", 2, 6, 8),
+        post("demo2", "SyntheticFounders", "How do you build landing pages fast?", "I'm a founder with an MVP and no designer; looking for a landing page workflow. What worked for you?", 5, 3, 4),
+        post("demo3", "SyntheticDesign", "AI design workflow reflections", "I'm a designer exploring an AI design workflow and Figma alternatives. The outputs often look generic; no request for recommendations.", 18, 0, 1),
     ]
     # Synthetic rules are test data only, never a claim about a real subreddit.
     config = {"brand": "OJO", "target_subreddits": ["SyntheticPM", "SyntheticFounders", "SyntheticDesign"],
-              "max_opportunities": 8, "verified_product_facts": ["Synthetic example: produces editable interface drafts from written requirements."],
+              "max_opportunities": 3, "verified_product_facts": ["Synthetic example: produces editable interface drafts from written requirements."],
               "promotion_policies": {"SyntheticPM": {"status": "may_mention", "checked_at": now.isoformat(),
                                                    "evidence_url": "https://www.reddit.com/r/SyntheticPM/about/rules"}}}
     return posts, config
 
 
 def _write(run: dict, out: Path) -> None:
+    from .weekly import make_daily_digest
+
     out.mkdir(parents=True, exist_ok=False)
     files = {
         "opportunities.md": render_markdown(run),
         "opportunities.csv": render_csv(run),
+        "feishu_review.csv": render_feishu_csv(run),
         "opportunities.json": json.dumps(run, ensure_ascii=False, indent=2) + "\n",
+        "daily_digest.json": json.dumps(make_daily_digest(run), ensure_ascii=False, indent=2) + "\n",
     }
     for name, content in files.items():
         path = out / name
@@ -86,15 +89,91 @@ def _write(run: dict, out: Path) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Read-only Reddit opportunity screening; never posts comments.")
-    parser.add_argument("mode", choices=["demo", "import", "live"])
+    parser.add_argument("mode", choices=["demo", "import", "live", "sync-feishu", "purge-feishu", "digest", "weekly"])
     parser.add_argument("--config", type=Path, default=Path("config.example.json"))
-    parser.add_argument("--input", type=Path, help="Approved Reddit export as a JSON list of post objects; import mode only")
+    parser.add_argument("--input", type=Path, help="Import JSON, Feishu CSV, or directory of daily digests, depending on mode")
+    parser.add_argument("--reviews", type=Path, help="Reviewed Feishu ordinary-sheet CSV export; digest mode only")
     parser.add_argument("--out", type=Path, help="New output directory; default .runs/<timestamp>")
     parser.add_argument("--limit-per-sub", type=int, default=300)
     parser.add_argument("--ai", action="store_true", help="Optional DeepSeek wording; requires separate Reddit AI-processing approval")
     args = parser.parse_args(argv)
     now = datetime.now(timezone.utc)
     try:
+        if args.mode == "purge-feishu":
+            from .feishu_sheets import cleanup_expired_feishu_rows
+
+            result = cleanup_expired_feishu_rows(
+                app_id=os.environ.get("FEISHU_APP_ID", ""),
+                app_secret=os.environ.get("FEISHU_APP_SECRET", ""),
+                spreadsheet_token=os.environ.get("FEISHU_SPREADSHEET_TOKEN", ""),
+                sheet_id=os.environ.get("FEISHU_SHEET_ID", ""),
+                now=now,
+            )
+            print(f"Feishu queue retention: {result['expired']} expired rows cleared, "
+                  f"{result['retained']} retained; no Reddit API access")
+            return 0
+        if args.mode == "sync-feishu":
+            from .feishu_sheets import sync_feishu_sheet
+
+            if not args.input or not args.input.is_file() or args.input.stat().st_size > 2_000_000:
+                raise ValueError("--input must be an existing Feishu review CSV smaller than 2 MB.")
+            result = sync_feishu_sheet(
+                args.input.read_text(encoding="utf-8"),
+                reddit_approved=os.environ.get("REDDIT_APPROVAL_CONFIRMED") == "true"
+                and bool(os.environ.get("REDDIT_APPROVAL_REFERENCE", "").strip()),
+                feishu_sharing_approved=os.environ.get("REDDIT_FEISHU_SHARING_APPROVED") == "true",
+                approval_ref=os.environ.get("REDDIT_FEISHU_APPROVAL_REFERENCE", ""),
+                app_id=os.environ.get("FEISHU_APP_ID", ""),
+                app_secret=os.environ.get("FEISHU_APP_SECRET", ""),
+                spreadsheet_token=os.environ.get("FEISHU_SPREADSHEET_TOKEN", ""),
+                sheet_id=os.environ.get("FEISHU_SHEET_ID", ""),
+                now=now,
+            )
+            print(f"Feishu queue synced: {result['added']} added, {result['retained']} retained, "
+                  f"{result['expired']} expired; no Reddit write actions")
+            return 0
+        if args.mode == "digest":
+            from .review_import import parse_feishu_review_csv
+            from .weekly import make_daily_digest
+
+            _approval()
+            if not args.input or not args.reviews or not args.reviews.is_file() or args.reviews.stat().st_size > 2_000_000:
+                raise ValueError("--input approved opportunities JSON and --reviews Feishu CSV (<2 MB) are required.")
+            run = _read_json(args.input)
+            if not isinstance(run, dict):
+                raise ValueError("--input must contain a daily run object.")
+            generated = datetime.fromisoformat(str(run.get("generated_at", "")).replace("Z", "+00:00"))
+            if generated.tzinfo is None or generated.utcoffset() is None or not timedelta(0) <= now - generated <= timedelta(hours=48):
+                raise ValueError("Daily run must be within its 48-hour raw-data retention window.")
+            reviews = parse_feishu_review_csv(args.reviews.read_text(encoding="utf-8-sig"), run)
+            digest = make_daily_digest(run, reviews)
+            out = args.out or Path(".runs") / now.strftime("review-digest-%Y%m%dT%H%M%SZ")
+            out.mkdir(parents=True, exist_ok=False)
+            path = out / "daily_digest.json"
+            path.write_text(json.dumps(digest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            path.chmod(0o600)
+            print(f"Reviewed daily digest ready: {path.resolve()} ({len(reviews)} reviewed row(s); no raw thread content copied)")
+            return 0
+        if args.mode == "weekly":
+            from .weekly import aggregate_weekly_digests, render_weekly_markdown
+
+            if not args.input or not args.input.is_dir():
+                raise ValueError("--input must be a directory of retention-safe daily digest JSON files.")
+            paths = sorted(args.input.glob("*.json"))
+            if not paths or len(paths) > 31:
+                raise ValueError("Provide 1–31 daily digest JSON files in --input.")
+            report = aggregate_weekly_digests([_read_json(path) for path in paths], now=now)
+            out = args.out or Path(".runs") / now.strftime("weekly-%Y%m%dT%H%M%SZ")
+            out.mkdir(parents=True, exist_ok=False)
+            for name, content in {
+                "weekly.md": render_weekly_markdown(report),
+                "weekly.json": json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+            }.items():
+                path = out / name
+                path.write_text(content, encoding="utf-8")
+                path.chmod(0o600)
+            print(f"Weekly digest ready: {out.resolve()} ({report['run_count']} daily digest(s))")
+            return 0
         if args.mode == "demo":
             if args.ai:
                 raise ValueError("--ai is only available for approved real-data runs, not the synthetic demo.")
@@ -143,7 +222,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Run stopped: {exc}", file=sys.stderr)
         return 2
     except Exception as exc:
+        from .feishu_sheets import FeishuSyncError
         from .reddit_client import RedditAccessError
+        if isinstance(exc, FeishuSyncError):
+            print(f"Feishu sync stopped: {exc}", file=sys.stderr)
+            return 4
         if isinstance(exc, RedditAccessError):
             print(f"Reddit read stopped: {exc}", file=sys.stderr)
             return 3

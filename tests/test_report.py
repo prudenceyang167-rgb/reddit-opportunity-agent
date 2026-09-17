@@ -4,7 +4,7 @@ import csv
 import io
 import unittest
 
-from reddit_opportunity_agent.report import render_csv, render_markdown
+from reddit_opportunity_agent.report import _FEISHU_COLUMNS, render_community_rules_csv, render_csv, render_feishu_csv, render_markdown
 
 
 def sample_run():
@@ -73,6 +73,41 @@ class ReportTests(unittest.TestCase):
         self.assertIn("P0 1", rows[0]["qa_summary"])
         self.assertIn("check current subreddit rules", rows[0]["limitations"])
         self.assertEqual(rows[0]["posting_status"], "Draft only; not posted")
+
+    def test_feishu_review_export_has_workflow_fields_and_retention(self):
+        run = sample_run()
+        item = run["opportunities"][0]
+        item.update({"persona": "PM", "use_case": "Prototype", "intent": "tool_selection", "competitor": ["Figma Make"]})
+        item["title"] = '=HYPERLINK("https://evil.example","click")'
+        rows = list(csv.DictReader(io.StringIO(render_feishu_csv(run))))
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual(row["Persona"], "PM")
+        self.assertEqual(row["Use Case"], "Prototype")
+        self.assertEqual(row["Intent"], "tool_selection")
+        self.assertEqual(row["Competitor"], "Figma Make")
+        self.assertEqual(row["Review Status"], "待审核")
+        self.assertEqual(row["Rules Checked"], "No")
+        self.assertEqual(len(_FEISHU_COLUMNS), 42)
+        self.assertLess(_FEISHU_COLUMNS.index("Review Status"), _FEISHU_COLUMNS.index("Summary"))
+        self.assertLess(_FEISHU_COLUMNS.index("Generalized Attested"), _FEISHU_COLUMNS.index("Comment Draft"))
+        self.assertEqual(row["Generalized Attested"], "No")
+        for field in ("Question Theme", "Query Candidate", "Use Case Insight",
+                      "Competitor Pain", "Product Feedback", "Content Idea"):
+            self.assertEqual(row[field], "")
+        self.assertEqual(row["Delete By UTC"], "2026-09-18T08:00:00+00:00")
+        self.assertTrue(row["Thread"].startswith("'=HYPERLINK"))
+        self.assertEqual(row["Thread URL"], "https://www.reddit.com/r/ProductManagement/comments/abc123/best_ai_tool/")
+
+    def test_community_rules_template_never_implies_promotion_permission(self):
+        config = {"target_subreddits": ["ProductManagement"], "promotion_policies": {
+            "ProductManagement": {"status": "may_mention", "self_promo": "unknown"}
+        }}
+        rows = list(csv.DictReader(io.StringIO(render_community_rules_csv(config))))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["Product Mention Decision"], "unknown")
+        self.assertEqual(rows[0]["Self Promotion"], "unknown")
+        self.assertIn("ProductManagement/about/rules", rows[0]["Rules URL"])
 
     def test_empty_run_and_invalid_payload(self):
         run = sample_run()

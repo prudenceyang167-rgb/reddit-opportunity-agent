@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import unittest
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from reddit_opportunity_agent.scoring import evaluate_posts
 
@@ -85,6 +87,117 @@ class ScoringTest(unittest.TestCase):
         self.assertEqual(row["priority"], "P2")
         self.assertEqual(row["action"], "research_only")
         self.assertFalse(row["comment_draft"])
+
+    def test_strategy_taxonomy_separates_persona_use_case_pain_and_intent(self):
+        row = self.run_score([post(title="Lovable landing page looks generic — review my page?",
+                                   body="I'm a founder and the value proposition is unclear.")])["opportunities"][0]
+        self.assertEqual(row["icp"], "Founder")  # Old consumers keep working.
+        self.assertEqual(row["persona"], "Founder")
+        self.assertEqual(row["persona_confidence"], "explicit")
+        self.assertEqual(row["use_case"], "Landing Page")
+        self.assertEqual(row["pain_point"], "Generic UI")
+        self.assertEqual(row["competitor"], "Lovable")
+        self.assertEqual(row["intent"], "feedback_request")
+        self.assertEqual(row["promotion_risk"], "unknown")
+        self.assertEqual(row["promotion_risk_level"], "unknown")
+
+    def test_competitor_labels_include_doc_examples(self):
+        row = self.run_score([post(title="Figma Make vs Stitch vs v0 vs Replit for a prototype?",
+                                   body="As a designer, what tool is easiest to iterate?")])["opportunities"][0]
+        self.assertEqual(row["competitors"], ["Figma Make", "Stitch", "v0", "Replit"])
+        self.assertEqual(row["intent"], "tool_selection")
+
+    def test_competitor_community_with_specific_pain_is_relevant(self):
+        conf = config()
+        conf["target_subreddits"] = ["lovable"]
+        row = self.run_score([post(title="The output looks generic", body="I am a designer; it is hard to edit.",
+                                   sub="lovable")], conf)["opportunities"][0]
+        self.assertEqual(row["use_case"], "AI Design")
+        self.assertEqual(row["pain_point"], "Generic UI")
+        self.assertEqual(row["competitor"], "Lovable")
+
+    def test_mvp_word_before_punctuation_matches_use_case(self):
+        row = self.run_score([post(title="How do I scope my MVP?",
+                                   body="As a founder, I have too many screens in mind.")])["opportunities"][0]
+        self.assertEqual(row["use_case"], "MVP")
+        self.assertEqual(row["pain_point"], "MVP Scope")
+
+    def test_broad_question_does_not_authorize_product_mention(self):
+        row = self.run_score([post(title="Are AI prototypes useful?",
+                                   body="I'm a product manager; curious what everyone thinks.")],
+                             config(policy="may_mention"))["opportunities"][0]
+        self.assertEqual(row["intent"], "general_discussion")
+        self.assertFalse(row["product_mention_allowed"])
+        self.assertFalse(row["product_link_allowed"])
+        self.assertNotIn("Disclosure: I work on OJO", row["comment_draft"])
+
+    def test_topic_inferred_persona_does_not_authorize_product_mention(self):
+        row = self.run_score([post(title="Best AI tool for prototyping?",
+                                   body="Product managers often need editable mockups. Any tools?")],
+                             config(policy="may_mention"))["opportunities"][0]
+        self.assertEqual(row["persona"], "PM")
+        self.assertEqual(row["persona_confidence"], "inferred")
+        self.assertFalse(row["product_mention_allowed"])
+
+    def test_explicit_founder_is_not_misclassified_as_designer_when_lacking_one(self):
+        row = self.run_score([post(title="How do you build landing pages fast?",
+                                   body="I'm a founder with no designer; what's a practical landing page workflow?")])["opportunities"][0]
+        self.assertEqual(row["persona"], "Founder")
+        self.assertEqual(row["persona_confidence"], "explicit")
+
+    def test_explicit_rule_checklist_is_fail_closed(self):
+        conf = config(policy="may_mention")
+        conf["promotion_policies"]["ExamplePM"].update(
+            self_promo="unknown", account_age="unknown", karma="unknown", product_link="allowed")
+        row = self.run_score([post()], conf)["opportunities"][0]
+        self.assertEqual(row["promotion_risk"], "unknown")
+        self.assertFalse(row["product_mention_allowed"])
+        self.assertFalse(row["product_link_allowed"])
+
+        conf["promotion_policies"]["ExamplePM"].update(self_promo="prohibited")
+        row = self.run_score([post()], conf)["opportunities"][0]
+        self.assertEqual(row["promotion_risk"], "prohibited")
+        self.assertEqual(row["promotion_risk_level"], "high")
+
+    def test_ambiguous_or_malformed_policy_records_fail_closed(self):
+        conf = config(policy="may_mention")
+        conf["promotion_policies"]["examplepm"] = {"status": "may_mention",
+                                                      "checked_at": NOW.isoformat(),
+                                                      "evidence_url": "https://www.reddit.com/r/ExamplePM/about/rules"}
+        row = self.run_score([post()], conf)["opportunities"][0]
+        self.assertEqual(row["promotion_risk"], "unknown")
+        self.assertFalse(row["product_mention_allowed"])
+        conf["promotion_policies"] = ["not a mapping"]
+        row = self.run_score([post()], conf)["opportunities"][0]
+        self.assertEqual(row["promotion_risk"], "unknown")
+
+    def test_link_permission_requires_explicit_rule_and_tool_request(self):
+        conf = config(policy="may_mention")
+        row = self.run_score([post()], conf)["opportunities"][0]
+        self.assertTrue(row["product_mention_allowed"])
+        self.assertFalse(row["product_link_allowed"])
+        conf["promotion_policies"]["ExamplePM"].update(product_link="allowed")
+        row = self.run_score([post()], conf)["opportunities"][0]
+        self.assertTrue(row["product_link_allowed"])
+        self.assertNotIn("https://", row["comment_draft"])
+
+    def test_example_config_is_small_unsafe_by_default_daily_shortlist(self):
+        example = json.loads((Path(__file__).resolve().parents[1] / "config.example.json").read_text())
+        targets = example["target_subreddits"]
+        self.assertGreaterEqual(len(targets), 10)
+        self.assertLessEqual(len(targets), 15)
+        self.assertEqual(example["max_opportunities"], 3)
+        self.assertEqual(set(example["promotion_policies"]), set(targets))
+        self.assertFalse(example["verified_product_facts"])
+        for rules in example["promotion_policies"].values():
+            self.assertEqual(rules["status"], "unknown")
+            for field in ("self_promo", "product_link", "account_age", "karma", "survey",
+                          "product_feedback", "weekly_promo_thread"):
+                self.assertEqual(rules[field], "unknown")
+        conf = dict(example, target_subreddits=["ExamplePM"])
+        selected = self.run_score([post(f"a{i}") for i in range(6)], conf)
+        self.assertEqual(selected["counts"]["matched"], 6)
+        self.assertEqual(selected["counts"]["selected"], 3)
 
     def test_no_target_subreddits_fails(self):
         with self.assertRaises(ValueError):

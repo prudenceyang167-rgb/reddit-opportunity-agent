@@ -21,7 +21,8 @@ _SYSTEM = (
     "brand, affiliation, or link. Do not invent facts about a product. "
     "Return JSON only with string keys summary, core_question, reply_angle, practical_advice. "
     "Keep each field concise, specific, non-promotional, and grounded in the post. "
-    "Practical_advice should be a helpful draft contribution, not a sales pitch."
+    "Practical_advice should diagnose the user's problem, offer a useful method, "
+    "and give concrete next steps, without a sales pitch or fabricated experience."
 )
 
 
@@ -46,6 +47,8 @@ def _request_enrichment(post: dict, row: dict, api_key: str, *, opener=urlopen) 
         "body": _short(post.get("selftext"), 1200),
         "detected_pain": row["pain_point"],
         "detected_icp": row["icp"],
+        "detected_use_case": row.get("use_case", ""),
+        "detected_competitor": row.get("competitor", ""),
         "action": row["action"],
     }
     payload = {

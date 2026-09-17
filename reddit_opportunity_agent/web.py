@@ -62,7 +62,7 @@ def render_dashboard(run: dict) -> str:
         </article>''')
     return f'''<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex,nofollow"><title>Reddit Opportunity Agent · Synthetic Demo</title>
+<meta name="robots" content="noindex,nofollow"><title>OJO Community Opportunity Agent · Synthetic Demo</title>
 <style>
 :root{{--ink:#192528;--muted:#657276;--paper:#f5f4ef;--card:#fff;--line:#dce2df;--teal:#0d6b62;--orange:#e8683d}}
 *{{box-sizing:border-box}}body{{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.55}}
@@ -71,6 +71,7 @@ a{{color:inherit}}.shell{{max-width:1120px;margin:auto;padding:0 28px}}header{{b
 .nav a{{font-size:13px;text-decoration:none;color:var(--teal);font-weight:700}}.hero{{padding:70px 0 48px}}
 .eyebrow{{font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:800;color:var(--teal)}}h1{{font-size:clamp(36px,6vw,68px);line-height:1.02;letter-spacing:-.065em;max-width:800px;margin:16px 0 20px}}
 .lede{{color:var(--muted);font-size:18px;max-width:680px;margin:0}}.notice{{margin-top:30px;padding:16px 18px;border:1px solid #e8cda9;border-radius:12px;background:#fff4e4;color:#68422d;font-size:14px}}
+.actions{{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}}.actions a{{display:inline-block;border:1px solid var(--teal);background:var(--teal);color:#fff;text-decoration:none;padding:11px 15px;border-radius:8px;font-size:13px;font-weight:750}}.actions a.secondary{{background:#fff;color:var(--teal)}}
 .metrics{{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:32px 0 50px}}.metric{{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px}}
 .metric strong{{display:block;font-size:29px;line-height:1.15;letter-spacing:-.05em}}.metric span{{display:block;color:var(--muted);font-size:12px;margin-top:7px}}
 .section-head{{display:flex;justify-content:space-between;align-items:end;gap:20px;margin-bottom:20px}}h2{{font-size:27px;letter-spacing:-.04em;margin:0}}.section-head p{{color:var(--muted);font-size:13px;margin:0}}
@@ -81,20 +82,25 @@ a{{color:inherit}}.shell{{max-width:1120px;margin:auto;padding:0 28px}}header{{b
 .summary{{color:#4c595d;font-size:14px;margin:20px 0}}.question,.angle{{border-top:1px solid var(--line);padding-top:14px;margin-top:14px}}.question span,.angle span{{font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:800;color:var(--teal)}}
 .question p,.angle p{{font-size:14px;margin:6px 0 0}}.score-grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:20px}}.score-part{{background:#f4f6f4;border-radius:8px;padding:9px 8px;text-align:center}}
 .score-part span{{display:block;font-size:10px;color:var(--muted)}}.score-part strong{{display:block;font-size:13px;margin-top:2px}}details{{margin-top:18px;background:#f6f8f6;border-radius:9px;padding:12px 14px}}
-summary{{cursor:pointer;font-size:13px;font-weight:700;color:var(--teal)}}.draft{{font-size:13px;white-space:pre-wrap}}.review-note{{font-size:11px;color:var(--muted);margin-bottom:0}}footer{{border-top:1px solid var(--line);padding:25px 0 40px;color:var(--muted);font-size:12px}}
+summary{{cursor:pointer;font-size:13px;font-weight:700;color:var(--teal)}}.draft{{font-size:13px;white-space:pre-wrap}}.review-note{{font-size:11px;color:var(--muted);margin-bottom:0}}.setup{{border-top:1px solid var(--line);padding:36px 0 56px}}.setup p{{color:var(--muted);font-size:14px;max-width:740px}}.setup ol{{padding-left:20px;max-width:820px}}.setup li{{margin:12px 0;font-size:14px}}footer{{border-top:1px solid var(--line);padding:25px 0 40px;color:var(--muted);font-size:12px}}
 @media(max-width:760px){{.hero{{padding:48px 0 28px}}.metrics{{grid-template-columns:repeat(2,1fr);margin:28px 0 38px}}.grid{{grid-template-columns:1fr}}.section-head{{display:block}}.section-head p{{margin-top:4px}}}}
 @media(max-width:420px){{.shell{{padding:0 16px}}.nav{{min-height:62px}}.brand{{font-size:16px}}.metric{{padding:14px}}.opportunity{{padding:18px}}.score-grid{{grid-template-columns:repeat(2,1fr)}}}}
 </style></head><body>
-<header><div class="shell nav"><div class="brand">OJO / Reddit Opportunity Agent</div><a href="https://github.com/prudenceyang167-rgb/reddit-opportunity-agent" rel="noopener noreferrer">View GitHub ↗</a></div></header>
+<header><div class="shell nav"><div class="brand">OJO / Community Opportunity Agent</div><a href="https://github.com/prudenceyang167-rgb/reddit-opportunity-agent" rel="noopener noreferrer">View GitHub ↗</a></div></header>
 <main class="shell"><section class="hero"><div class="eyebrow">Human-reviewed opportunity intelligence</div>
 <h1>Find the right conversations before they peak.</h1>
 <p class="lede">每天筛出少量值得参与的讨论，解释用户匹配、问题匹配、讨论价值和推广风险。最终回复始终由人审核和发布。</p>
-<div class="notice"><strong>模拟演示 · 非实时 Reddit 数据。</strong> 真实扫描仍需 Reddit 对商业用途的书面授权；本页面不会抓取、展示或发布真实 Reddit 内容。</div></section>
+<div class="notice"><strong>模拟演示 · 非实时 Reddit 数据。</strong> 真实扫描仍需 Reddit 对商业用途的书面授权；本页面不会抓取、展示或发布真实 Reddit 内容。</div>
+<div class="actions"><a href="/api?format=feishu-csv">下载飞书审核表模板</a><a class="secondary" href="/api?format=rules-csv">下载社区规则清单</a><a class="secondary" href="https://github.com/prudenceyang167-rgb/reddit-opportunity-agent/actions/workflows/daily.yml" rel="noopener noreferrer">查看每日任务</a></div></section>
 <section class="metrics" aria-label="Demo summary"><div class="metric"><strong>24h</strong><span>Screening window</span></div>
 <div class="metric"><strong>{len(rows)}</strong><span>Synthetic opportunities</span></div>
 <div class="metric"><strong>{priority_counts['P0']}/{priority_counts['P1']}/{priority_counts['P2']}</strong><span>P0 / P1 / P2</span></div>
 <div class="metric"><strong>0</strong><span>Automated posts</span></div></section>
 <section><div class="section-head"><h2>Opportunity list</h2><p>Scored examples · generated {_e(run.get('generated_at'))}</p></div>
-<div class="grid">{''.join(cards)}</div></section></main>
+<div class="grid">{''.join(cards)}</div></section>
+<section class="setup"><h2>投入日常工作的连接</h2><p>依据 OJO 的社区运营方案，先从核心社区筛选每天 2–3 条机会，在飞书电子表格完成审核，并把归纳后的需求信号带入每周复盘。</p>
+<ol><li>在飞书普通电子表格导入审核表模板和社区规则清单；规则不明时保持“unknown”，不提产品、不发链接。</li>
+<li>取得 Reddit 对 OJO 商业监测、存储和飞书共享范围的书面授权，再配置只读 API 凭据；未获授权前每日抓取保持关闭。</li>
+<li>每日阅读原帖并检查社区规则，修改草稿后由人手动回复。飞书机会行设置 24 小时到期；自动清理失败时需人工删除。</li></ol></section></main>
 <footer><div class="shell">Independent personal project by prudenceyang167-rgb. Not an official Reddit product. All examples are fictional; no comment has been posted.</div></footer>
 </body></html>'''
