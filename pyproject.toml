@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reddit-opportunity-agent"
+version = "0.1.0"
+description = "Human-reviewed, approval-gated Reddit opportunity screening for OJO"
+requires-python = ">=3.9"
+dependencies = []
+authors = [{name = "prudenceyang167-rgb"}]
+
+[project.scripts]
+reddit-opportunity = "reddit_opportunity_agent.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["reddit_opportunity_agent*"]
