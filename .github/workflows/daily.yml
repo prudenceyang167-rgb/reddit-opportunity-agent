@@ -46,6 +46,9 @@ jobs:
           REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
           REDDIT_USER_AGENT: ${{ secrets.REDDIT_USER_AGENT }}
           REPORT_ENCRYPTION_KEY: ${{ secrets.REPORT_ENCRYPTION_KEY }}
+          REDDIT_AI_PROCESSING_APPROVED: ${{ vars.REDDIT_AI_PROCESSING_APPROVED }}
+          REDDIT_AI_APPROVAL_REFERENCE: ${{ secrets.REDDIT_AI_APPROVAL_REFERENCE }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         shell: bash
         run: |
           set -euo pipefail
@@ -57,7 +60,11 @@ jobs:
             echo 'Daily live scan skipped: one or more required secrets/targets are absent.' >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          python -m reddit_opportunity_agent.cli live --config config.example.json --out .runs/daily
+          ai_args=()
+          if [[ "$REDDIT_AI_PROCESSING_APPROVED" == 'true' && -n "$REDDIT_AI_APPROVAL_REFERENCE" && -n "$DEEPSEEK_API_KEY" ]]; then
+            ai_args=(--ai)
+          fi
+          python -m reddit_opportunity_agent.cli live --config config.example.json --out .runs/daily "${ai_args[@]}"
           tar -czf "$RUNNER_TEMP/opportunities.tar.gz" -C .runs daily
           openssl enc -aes-256-cbc -pbkdf2 -iter 100000 -salt \
             -in "$RUNNER_TEMP/opportunities.tar.gz" \

@@ -30,6 +30,26 @@ class CliTest(unittest.TestCase):
                 self.assertEqual(main(["import", "--config", str(root / "config.json"), "--input", str(root / "input.json"), "--out", str(root / "report")]), 2)
             self.assertFalse((root / "report").exists())
 
+    def test_deepseek_blocked_without_separate_processing_approval(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "input.json").write_text("[]")
+            (root / "config.json").write_text('{"target_subreddits":["ExamplePM"]}')
+            with patch.dict(os.environ, {
+                "REDDIT_APPROVAL_CONFIRMED": "true", "REDDIT_APPROVAL_REFERENCE": "written-api-approval",
+                "REDDIT_AI_PROCESSING_APPROVED": "", "REDDIT_AI_APPROVAL_REFERENCE": "",
+                "DEEPSEEK_API_KEY": "test-key",
+            }):
+                self.assertEqual(main(["import", "--ai", "--config", str(root / "config.json"),
+                                       "--input", str(root / "input.json"), "--out", str(root / "report")]), 2)
+            self.assertFalse((root / "report").exists())
+
+    def test_synthetic_demo_cannot_call_ai(self):
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory) / "report"
+            self.assertEqual(main(["demo", "--ai", "--out", str(out)]), 2)
+            self.assertFalse(out.exists())
+
     def test_duplicate_output_never_overwritten(self):
         with tempfile.TemporaryDirectory() as directory:
             out = Path(directory) / "report"

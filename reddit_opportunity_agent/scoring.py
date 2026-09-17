@@ -47,6 +47,22 @@ def _safe_permalink(value: str) -> str:
     return value
 
 
+def _rules_evidence_url(value: Any, subreddit: str) -> str:
+    """Accept only the target community’s moderator-controlled rules page."""
+    if not isinstance(value, str):
+        return ""
+    try:
+        parsed = urlparse(value.strip())
+    except ValueError:
+        return ""
+    if parsed.scheme != "https" or parsed.netloc.lower() not in {"reddit.com", "www.reddit.com", "old.reddit.com"}:
+        return ""
+    match = re.fullmatch(r"/r/([A-Za-z0-9_]{1,21})/about/rules/?", parsed.path, re.IGNORECASE)
+    if not match or match.group(1).casefold() != subreddit.casefold():
+        return ""
+    return f"https://www.reddit.com/r/{match.group(1)}/about/rules"
+
+
 def _utc(value: Any) -> datetime | None:
     try:
         if isinstance(value, (int, float)):
@@ -75,10 +91,10 @@ def _policy(subreddit: str, config: dict, now: datetime) -> tuple[str, list[str]
     if status != "may_mention":
         return "unknown", ["Subreddit product/link policy is unverified."]
     checked = _utc(row.get("checked_at"))
-    evidence = _safe_permalink(row.get("evidence_url", ""))
-    # Rule pages often use reddit.com/r/.../about/rules; a missing/freshness gap is never an allow.
+    evidence = _rules_evidence_url(row.get("evidence_url", ""), subreddit)
+    # A different community or an arbitrary Reddit post cannot establish the local rules.
     if not checked or checked > now or now - checked > timedelta(days=30) or not evidence:
-        return "unknown", ["Product-mention policy evidence is missing or older than 30 days."]
+        return "unknown", ["Product-mention policy evidence is missing, mismatched, or older than 30 days."]
     return "may_mention", [f"Human-recorded community-rule evidence: {evidence}"]
 
 
@@ -108,16 +124,21 @@ def evaluate_posts(posts: list[dict], config: dict, *, now: datetime, source: st
     now = now.astimezone(timezone.utc)
     if not isinstance(posts, list) or not isinstance(config, dict):
         raise ValueError("posts must be a list and config must be an object")
+    if len(posts) > 5000:
+        raise ValueError("Input has more than 5,000 posts; split the approved export rather than silently truncating it.")
     targets = {str(x).removeprefix("r/").casefold() for x in config.get("target_subreddits", []) if isinstance(x, str)}
     if not targets:
         raise ValueError("target_subreddits is required")
     max_out = min(20, max(1, _int(config.get("max_opportunities", 8))))
-    facts = [_text(x, 240) for x in config.get("verified_product_facts", []) if _text(x, 240)]
+    raw_facts = config.get("verified_product_facts", [])
+    if not isinstance(raw_facts, list) or any(not isinstance(fact, str) or not _text(fact, 240) for fact in raw_facts):
+        raise ValueError("verified_product_facts must be a list of nonempty strings.")
+    facts = [_text(fact, 240) for fact in raw_facts]
     brand = _text(config.get("brand", "OJO"), 60) or "OJO"
     seen: set[str] = set()
     candidates = []
     counters = {"input": len(posts), "outside_window": 0, "excluded": 0, "no_match": 0, "deduplicated": 0}
-    for post in posts[:5000]:
+    for post in posts:
         if not isinstance(post, dict):
             counters["excluded"] += 1
             continue

@@ -46,6 +46,32 @@ class ScoringTest(unittest.TestCase):
                 self.assertNotEqual(row["priority"], "P0")
                 self.assertFalse(row["product_mention_allowed"])
 
+    def test_invalid_fact_config_cannot_authorize_product_mention(self):
+        for facts in ("unverified", None, [""], ["  "], ["Valid fact", 42]):
+            with self.subTest(facts=facts):
+                conf = config(policy="may_mention")
+                conf["verified_product_facts"] = facts
+                with self.assertRaisesRegex(ValueError, "verified_product_facts"):
+                    self.run_score([post()], conf)
+
+    def test_only_same_subreddit_rules_page_is_mention_evidence(self):
+        for evidence in (
+            "https://www.reddit.com/r/Other/about/rules",
+            "https://www.reddit.com/r/ExamplePM/comments/abc/mod_note/",
+            "https://www.reddit.com/r/ExamplePM/new/",
+            "https://www.reddit.com:444/r/ExamplePM/about/rules",
+        ):
+            with self.subTest(evidence=evidence):
+                conf = config(policy="may_mention")
+                conf["promotion_policies"]["ExamplePM"]["evidence_url"] = evidence
+                row = self.run_score([post()], conf)["opportunities"][0]
+                self.assertFalse(row["product_mention_allowed"])
+                self.assertEqual(row["promotion_risk"], "unknown")
+
+    def test_oversized_input_fails_instead_of_silent_truncation(self):
+        with self.assertRaisesRegex(ValueError, "5,000 posts"):
+            self.run_score([post()] * 5001)
+
     def test_recent_valid_posts_only_and_deduplicate(self):
         posts = [post(), post(), post("old", hours=25), post("bad", locked=True),
                  post("outside", sub="Other"), post("unsafe", permalink="https://evil.example/x")]

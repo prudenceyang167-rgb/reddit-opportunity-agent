@@ -91,14 +91,21 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--input", type=Path, help="Approved Reddit export as a JSON list of post objects; import mode only")
     parser.add_argument("--out", type=Path, help="New output directory; default .runs/<timestamp>")
     parser.add_argument("--limit-per-sub", type=int, default=300)
+    parser.add_argument("--ai", action="store_true", help="Optional DeepSeek wording; requires separate Reddit AI-processing approval")
     args = parser.parse_args(argv)
     now = datetime.now(timezone.utc)
     try:
         if args.mode == "demo":
+            if args.ai:
+                raise ValueError("--ai is only available for approved real-data runs, not the synthetic demo.")
             posts, config = _demo(now)
             source = "SYNTHETIC DEMO — no real Reddit data"
         else:
             _approval()
+            if args.ai and (os.environ.get("REDDIT_AI_PROCESSING_APPROVED") != "true"
+                            or not os.environ.get("REDDIT_AI_APPROVAL_REFERENCE", "").strip()
+                            or not os.environ.get("DEEPSEEK_API_KEY", "").strip()):
+                raise ValueError("--ai requires REDDIT_AI_PROCESSING_APPROVED=true, REDDIT_AI_APPROVAL_REFERENCE, and DEEPSEEK_API_KEY; Reddit approval must cover third-party processing.")
             config = _configuration(args.config)
             if args.mode == "import":
                 if not args.input:
@@ -117,6 +124,15 @@ def main(argv: list[str] | None = None) -> int:
         if not isinstance(posts, list):
             raise ValueError("Input JSON must be an array of post objects.")
         run = evaluate_posts(posts, config, now=now, source=source)
+        if args.ai:
+            from .ai import enrich_selected
+            enrich_selected(
+                run, posts, config,
+                reddit_approved=True,
+                ai_processing_approved=os.environ.get("REDDIT_AI_PROCESSING_APPROVED") == "true",
+                ai_approval_reference=os.environ.get("REDDIT_AI_APPROVAL_REFERENCE", ""),
+                api_key=os.environ.get("DEEPSEEK_API_KEY", ""),
+            )
         if args.mode == "demo":
             run["limitations"].insert(0, "Everything in this report is synthetic; community names, rules, posts and product facts are not real.")
         out = args.out or Path(".runs") / now.strftime("%Y%m%dT%H%M%SZ")
